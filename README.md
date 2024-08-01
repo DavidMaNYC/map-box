@@ -8,7 +8,7 @@ Overview This project is a React web application that integrates with Mapbox to 
 -Node.js 
 -npm
 
-#Setup
+# Setup
 
 ## Install frontend dependencies:
 
