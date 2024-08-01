@@ -1,55 +1,52 @@
-Mapbox Polygon Project
-Overview
-This project is a React web application that integrates with Mapbox to provide mapping functionality, focused on the creation and manipulation of polygons. Users can add, edit, and delete polygons, with each session being uniquely identified. The application also features unit tests and a backend built with Node.js.
+# Mapbox
 
-Installation
-Prerequisites
-Node.js
-npm
-Setup
+Overview This project is a React web application that integrates with Mapbox to provide mapping functionality, focused on the creation and manipulation of polygons. Users can add, edit, and delete polygons, with each session being uniquely identified. The application also features unit tests and a backend built with Node.js.
 
+# Installation 
 
-Install frontend dependencies:
+## Prerequisites 
+-Node.js 
+-npm
 
-npm install
+#Setup
 
-Navigate to the server directory and install backend dependencies:
+## Install frontend dependencies:
 
-cd server
+    npm install
 
-npm install
+## Navigate to the server directory and install backend dependencies:
 
-Set up environment variables:
+    cd server
 
-Create a .env file in the root directory with the following variables:
-makefile
+    npm install
 
-VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
+# Set up environment variables:
 
-Create a .env file in the server directory with the following variables:
-makefile
+## Create a .env file in the root directory with the following variables: makefile
 
-PORT=5000
-DATABASE_URL=your_database_url
+    VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
 
-Start the application:
+## Create a .env file in the server directory with the following variables: makefile
+
+    PORT=5000 
+    DATABASE_URL=your_database_url
+
+# Start the application:
 
 In the root directory, run the start script:
 
-npm run start
+    npm run start
 
-Usage
+    Usage
 
 Open your browser and navigate to http://localhost:5173.
 
-Use the map to create, edit, and delete polygons.
-Share session-specific polygons using the generated link.
-
+Use the map to create, edit, and delete polygons. Share session-specific polygons using the generated link.
 
 Running Tests
 
 To run the unit tests for the backend:
 
-cd server
+    cd server
 
-npm test
+    npm test
