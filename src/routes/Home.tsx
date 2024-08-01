@@ -244,11 +244,10 @@ const Home = () => {
           },
           data: JSON.stringify(newPolygon),
         });
-        const data = response.data;
-        const savedPolygon = data.polygon;
+        const savedPolygon = response.data;
         if (polygonId) {
           setPolygonHistory((prevHistory) =>
-            prevHistory.map((p) => (p.id === polygonId ? data : p))
+            prevHistory.map((p) => (p.id === polygonId ? savedPolygon : p))
           );
         } else {
           setPolygonHistory((prevHistory) => [...prevHistory, savedPolygon]);

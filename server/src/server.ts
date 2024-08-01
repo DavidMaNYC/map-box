@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { Pool } from "pg";
 import dotenv from "dotenv";
+import redis from "./redis";
 
 dotenv.config();
 
@@ -54,6 +55,20 @@ const isValidPolygon = (coordinates: [number, number][]) => {
   return coordinates.length > 2;
 };
 
+// Middleware to check cache
+const checkCache = async (req: Request, res: Response, next: () => void) => {
+  try {
+    const polygons = await redis.get("polygons");
+    if (polygons) {
+      return res.json(JSON.parse(polygons));
+    }
+    next();
+  } catch (err) {
+    console.error("Redis error:", err);
+    next();
+  }
+};
+
 /**
  * Endpoint to create a new polygon.
  * @param {Request} req - The request object.
@@ -71,7 +86,10 @@ app.post("/polygons", async (req: Request, res: Response) => {
       "INSERT INTO polygons (name, coordinates, session_id) VALUES ($1, $2, $3) RETURNING *",
       [name, JSON.stringify(coordinates), sessionId]
     );
-    res.status(201).json({ polygon: result.rows[0], sessionId });
+    const savedPolygon = result.rows[0];
+    const polygons = await getPolygonsFromDB();
+    await redis.set("polygons", JSON.stringify(polygons), "EX", 3600);
+    res.status(201).json({ savedPolygon });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
@@ -83,10 +101,12 @@ app.post("/polygons", async (req: Request, res: Response) => {
  * @param {Request} req - The request object.
  * @param {Response} res - The response object.
  */
-app.get("/polygons", async (req: Request, res: Response) => {
+app.get("/polygons", checkCache, async (req: Request, res: Response) => {
   try {
     const result = await pool.query("SELECT * FROM polygons");
-    res.status(200).json(result.rows);
+    const polygons = result.rows;
+    await redis.set("polygons", JSON.stringify(polygons), "EX", 3600);
+    res.status(200).json(polygons);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
@@ -116,7 +136,10 @@ app.put("/polygons/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Polygon not found" });
     }
 
-    res.status(200).json(result.rows[0]);
+    const updatedPolygon = result.rows[0];
+    const polygons = await getPolygonsFromDB();
+    await redis.set("polygons", JSON.stringify(polygons), "EX", 3600);
+    res.status(200).json(updatedPolygon);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
@@ -141,12 +164,29 @@ app.delete("/polygons/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Polygon not found" });
     }
 
+    const polygons = await getPolygonsFromDB();
+    await redis.set("polygons", JSON.stringify(polygons), "EX", 3600);
     res.status(200).json({ message: "Polygon deleted successfully" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
+interface Polygon {
+  id: number;
+  name: string;
+  coordinates: [number, number][];
+  session_id: string;
+}
+
+/**
+ * Fetch all polygons from the database.
+ * @returns {Promise<Polygon[]>} - The list of polygons.
+ */
+const getPolygonsFromDB = async (): Promise<Polygon[]> => {
+  const result = await pool.query("SELECT * FROM polygons");
+  return result.rows as Polygon[];
+};
 
 if (process.env.NODE_ENV !== "test") {
   const port = process.env.PORT || 5000;
@@ -154,4 +194,5 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`Server listening on port ${port}`);
   });
 }
-export { app };
+
+export { app, pool };
