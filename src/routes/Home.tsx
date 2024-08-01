@@ -3,7 +3,8 @@ import mapboxgl, { LngLatLike, Map, Marker, GeoJSONSource } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
+import { toast } from "react-toastify";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
 
@@ -11,7 +12,7 @@ interface Polygon {
   id?: string;
   name: string;
   coordinates: [number, number][];
-  sessionId: string;
+  session_id: string;
 }
 
 const Home = () => {
@@ -23,8 +24,25 @@ const Home = () => {
   const [polygonId, setPolygonId] = useState<string | null>(null);
   const [polygonHistory, setPolygonHistory] = useState<Polygon[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("currentSession");
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage] = useState<number>(5);
   const location = useLocation();
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    const initializeSessionId = () => {
+      const urlParams = new URLSearchParams(location.search);
+      const sessionIdFromUrl = urlParams.get("session_id");
+      if (sessionIdFromUrl) {
+        setSessionId(sessionIdFromUrl);
+      } else {
+        const newSessionId = uuidv4();
+        setSessionId(newSessionId);
+      }
+    };
+
+    initializeSessionId();
+  }, [location.search]);
 
   useEffect(() => {
     if (mapContainerRef.current && !map) {
@@ -48,35 +66,19 @@ const Home = () => {
    */
   useEffect(() => {
     const fetchPolygonHistory = async () => {
+      if (!sessionId) return;
       try {
         const response = await axios.get("http://localhost:5000/polygons");
         const allPolygons = response.data;
-        // Filter polygons by the current sessionId if it exists
-        const filteredPolygons = sessionId
-          ? allPolygons.filter(
-              (polygon: Polygon) => polygon.sessionId === sessionId
-            )
-          : allPolygons;
-
-        setPolygonHistory(filteredPolygons);
+        setPolygonHistory(allPolygons);
       } catch (error) {
-        console.error("Error fetching polygon history:", error);
+        toast.error("Error fetching polygon history");
         setPolygonHistory([]);
       }
     };
-    const urlParams = new URLSearchParams(location.search);
-    const sessionIdFromUrl = urlParams.get("session_id");
-
-    if (sessionIdFromUrl) {
-      setSessionId(sessionIdFromUrl);
-    } else {
-      const newSessionId = uuidv4();
-      setSessionId(newSessionId);
-      navigate(`?session_id=${newSessionId}`);
-    }
 
     fetchPolygonHistory();
-  }, [location.search, navigate, sessionId]);
+  }, [sessionId]);
 
   /**
    * Adds a point to the map and creates a marker at the given longitude and latitude.
@@ -226,9 +228,8 @@ const Home = () => {
     const coordinates = markers.map(
       (marker) => marker.getLngLat().toArray() as [number, number]
     );
-    console.log(sessionId);
     if (isValidPolygon(coordinates) && polygonName) {
-      const newPolygon: Polygon = {
+      const newPolygon = {
         id: polygonId || undefined,
         name: polygonName,
         coordinates: coordinates,
@@ -244,19 +245,22 @@ const Home = () => {
           data: JSON.stringify(newPolygon),
         });
         const data = response.data;
+        const savedPolygon = data.polygon;
         if (polygonId) {
           setPolygonHistory((prevHistory) =>
-            prevHistory.map((p) => (p.id === polygonId ? data : p))
+            prevHistory.map((p) => (p.id === polygonId ? savedPolygon : p))
           );
         } else {
-          setPolygonHistory((prevHistory) => [...prevHistory, data]);
+          setPolygonHistory((prevHistory) => [...prevHistory, savedPolygon]);
         }
         setPolygonName("");
         setPolygonId(null);
         clearPolygon();
       } catch (error) {
-        console.error("Error saving polygon:", error);
+        toast.error("Error saving polygon");
       }
+    } else {
+      toast.error("Invalid polygon or missing name");
     }
   };
 
@@ -276,7 +280,7 @@ const Home = () => {
         prevHistory.filter((polygon) => polygon.id !== id)
       );
     } catch (error) {
-      console.error("Error deleting polygon:", error);
+      toast.error("Error deleting polygon");
     }
   };
 
@@ -301,6 +305,19 @@ const Home = () => {
       updatePolygonSource();
     }
   };
+
+  const getPolygonsForCurrentSession = () => {
+    return polygonHistory.filter((polygon) => polygon.session_id === sessionId);
+  };
+
+  // Pagination logic
+  const indexOfLastPolygon = currentPage * itemsPerPage;
+  const indexOfFirstPolygon = indexOfLastPolygon - itemsPerPage;
+  const currentPolygons = polygonHistory.slice(
+    indexOfFirstPolygon,
+    indexOfLastPolygon
+  );
+  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen w-screen bg-gray-100 p-4">
@@ -336,37 +353,114 @@ const Home = () => {
         </button>
       </div>
       <div className="w-full max-w-4xl bg-white rounded shadow-lg p-4">
-        <h2 className="text-xl font-semibold mb-2">Polygon History</h2>
-        <div className="grid grid-cols-1 gap-4">
-          {Array.isArray(polygonHistory) && polygonHistory.length > 0 ? (
-            polygonHistory.map((polygon) => (
-              <div
-                key={polygon.id}
-                className={`flex items-center justify-between p-4 border rounded shadow hover:bg-gray-200 cursor-pointer ${
-                  polygon.id === polygonId ? "bg-blue-100 border-blue-500" : ""
-                }`}
-                onClick={() => showPolygon(polygon)}
-              >
-                <h3 className="text-lg font-semibold">{polygon.name}</h3>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deletePolygon(polygon.id!);
-                  }}
-                  className="px-2 py-1 bg-red-500 text-white rounded"
-                >
-                  Delete
-                </button>
-              </div>
-            ))
+        <h2 className="text-xl font-semibold mb-2">Polygons</h2>
+        <div className="flex mb-4 border-b-[1px] border-gray-300">
+          <button
+            className={`px-4 py-2 rounded-tl-lg ${
+              activeTab === "currentSession"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800"
+            } transition-colors duration-200 ease-in-out`}
+            onClick={() => setActiveTab("currentSession")}
+          >
+            Current Session Polygons
+          </button>
+          <button
+            className={`px-4 py-2 rounded-tr-lg ${
+              activeTab === "allPolygons"
+                ? "bg-blue-600 text-white"
+                : "bg-gray-200 text-gray-800"
+            } transition-colors duration-200 ease-in-out`}
+            onClick={() => setActiveTab("allPolygons")}
+          >
+            All Polygons
+          </button>
+        </div>
+        <div className="mt-4">
+          {activeTab === "currentSession" ? (
+            <div className="grid grid-cols-1 gap-4">
+              {getPolygonsForCurrentSession().length > 0 ? (
+                getPolygonsForCurrentSession().map((polygon) => (
+                  <div
+                    key={polygon.id}
+                    className={`flex items-center justify-between p-4 border rounded shadow hover:bg-gray-200 cursor-pointer ${
+                      polygon.id === polygonId
+                        ? "bg-blue-100 border-blue-500"
+                        : ""
+                    }`}
+                    onClick={() => showPolygon(polygon)}
+                  >
+                    <h3 className="text-lg font-semibold">{polygon.name}</h3>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePolygon(polygon.id!);
+                      }}
+                      className="px-2 py-1 bg-red-500 text-white rounded"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div>No polygons found for this session</div>
+              )}
+            </div>
           ) : (
-            <div>No polygons found</div>
+            <div className="grid grid-cols-1 gap-4">
+              {currentPolygons.length > 0 ? (
+                currentPolygons.map((polygon) => (
+                  <div
+                    key={polygon.id}
+                    className={`flex items-center justify-between p-4 border rounded shadow hover:bg-gray-200 cursor-pointer ${
+                      polygon.id === polygonId
+                        ? "bg-blue-100 border-blue-500"
+                        : ""
+                    }`}
+                    onClick={() => showPolygon(polygon)}
+                  >
+                    <h3 className="text-lg font-semibold">{polygon.name}</h3>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deletePolygon(polygon.id!);
+                      }}
+                      className="px-2 py-1 bg-red-500 text-white rounded"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div>No polygons found</div>
+              )}
+            </div>
           )}
         </div>
+        {activeTab === "allPolygons" && (
+          <div className="flex justify-center mt-4">
+            {Array.from(
+              { length: Math.ceil(polygonHistory.length / itemsPerPage) },
+              (_, index) => (
+                <button
+                  key={index + 1}
+                  onClick={() => paginate(index + 1)}
+                  className={`px-3 py-1 mx-1 rounded ${
+                    currentPage === index + 1
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-200 text-gray-800"
+                  }`}
+                >
+                  {index + 1}
+                </button>
+              )
+            )}
+          </div>
+        )}
       </div>
       {sessionId && (
-        <div className="mt-4">
-          <p>Share this link to view the polygons:</p>
+        <div className="mt-4 flex flex-col items-center">
+          <p>Share this link to view the polygons for this session:</p>
           <a
             href={`${window.location.origin}/?session_id=${sessionId}`}
             className="text-blue-600 underline"
