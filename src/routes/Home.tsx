@@ -248,7 +248,7 @@ const Home = () => {
         const savedPolygon = data.polygon;
         if (polygonId) {
           setPolygonHistory((prevHistory) =>
-            prevHistory.map((p) => (p.id === polygonId ? savedPolygon : p))
+            prevHistory.map((p) => (p.id === polygonId ? data : p))
           );
         } else {
           setPolygonHistory((prevHistory) => [...prevHistory, savedPolygon]);
