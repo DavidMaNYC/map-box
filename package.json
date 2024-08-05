@@ -6,6 +6,7 @@
   "scripts": {
     "start": "concurrently \"npm run server\" \"npm run dev\"",
     "dev": "vite",
+    "build": "vite build",
     "server": "cd server && npm run dev"
   },
   "dependencies": {

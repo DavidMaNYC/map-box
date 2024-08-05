@@ -7,6 +7,7 @@ import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+const apiUrl = import.meta.env.VITE_API_URL;
 
 interface Polygon {
   id?: string;
@@ -64,19 +65,19 @@ const Home = () => {
    * Fetches the polygon history from the server and updates the state.
    * If there's an error, it logs the error and sets the polygon history to an empty array.
    */
-  useEffect(() => {
-    const fetchPolygonHistory = async () => {
-      if (!sessionId) return;
-      try {
-        const response = await axios.get("http://localhost:5000/polygons");
-        const allPolygons = response.data;
-        setPolygonHistory(allPolygons);
-      } catch (error) {
-        toast.error("Error fetching polygon history");
-        setPolygonHistory([]);
-      }
-    };
+  const fetchPolygonHistory = async () => {
+    if (!sessionId) return;
+    try {
+      const response = await axios.get(`${apiUrl}/polygons`);
+      const allPolygons = response.data;
+      setPolygonHistory(allPolygons);
+    } catch (error) {
+      toast.error("Error fetching polygon history");
+      setPolygonHistory([]);
+    }
+  };
 
+  useEffect(() => {
     fetchPolygonHistory();
   }, [sessionId]);
 
@@ -238,7 +239,7 @@ const Home = () => {
       try {
         const response = await axios({
           method: polygonId ? "PUT" : "POST",
-          url: `http://localhost:5000/polygons/${polygonId || ""}`,
+          url: `${apiUrl}/polygons/${polygonId || ""}`,
           headers: {
             "Content-Type": "application/json",
           },
@@ -269,9 +270,7 @@ const Home = () => {
    */
   const deletePolygon = async (id: string) => {
     try {
-      const response = await axios.delete(
-        `http://localhost:5000/polygons/${id}`
-      );
+      const response = await axios.delete(`${apiUrl}/polygons/${id}`);
       if (response.status !== 200) {
         throw new Error("Network response was not ok");
       }
