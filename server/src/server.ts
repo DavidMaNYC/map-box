@@ -89,7 +89,7 @@ app.post("/polygons", async (req: Request, res: Response) => {
     const savedPolygon = result.rows[0];
     const polygons = await getPolygonsFromDB();
     await redis.set("polygons", JSON.stringify(polygons), "EX", 3600);
-    res.status(201).json({ savedPolygon });
+    res.status(201).json(savedPolygon);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error" });
