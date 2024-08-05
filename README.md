@@ -25,12 +25,16 @@ Overview This project is a React web application that integrates with Mapbox to 
 ## Create a .env file in the root directory with the following variables: makefile
 
     VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_access_token
+    VITE_API_URL=your_api_url
 
 ## Create a .env file in the server directory with the following variables: makefile
 
     PORT=5000 
     DATABASE_URL=your_database_url
-
+    REDIS_HOST=your_redis_host
+    REDIS_PORT=your_redis_port
+    REDIS_PASSWORD=your_redis_password
+    
 # Start the application:
 
 In the root directory, run the start script:
